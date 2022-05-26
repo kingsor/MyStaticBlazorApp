@@ -15,6 +15,7 @@ public interface IProductData
     Task<IEnumerable<Product>> GetProducts();
     Task<Product> UpdateProduct(Product product);
     Task<Product> GetProductById(int id);
+    Task<ProductsReport> GetProductsReport();
 }
 
 public class ProductData : IProductData
@@ -30,22 +31,70 @@ public class ProductData : IProductData
 
     public Task<Product> AddProduct(Product product)
     {
-        //product.Id = GetRandomInt();
-        //products.Add(product);
+        try
+        {
+            using (SqlConnection connection = new SqlConnection(Environment.GetEnvironmentVariable("SqlConnectionString")))
+            {
+                connection.Open();
+                if (!String.IsNullOrEmpty(product.Name) && !string.IsNullOrEmpty(product.Description))
+                {
+                    var query = $"INSERT INTO ShoppingList (Name,Description,Quantity) VALUES('{product.Name}', '{product.Description}' , '{product.Quantity}')";
+                    SqlCommand command = new SqlCommand(query, connection);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e.ToString());
+        }
         return Task.FromResult(product);
     }
 
     public Task<Product> UpdateProduct(Product product)
     {
-        //var index = products.FindIndex(p => p.Id == product.Id);
-        //products[index] = product;
+        try
+        {
+            using (SqlConnection connection = new SqlConnection(Environment.GetEnvironmentVariable("SqlConnectionString")))
+            {
+                connection.Open();
+                var query = @"Update ShoppingList Set Name = @Name, Description = @Description , Quantity = @Quantity, UpdatedAt = @UpdatedAt Where Id = @Id";
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Name", product.Name);
+                command.Parameters.AddWithValue("@Description", product.Description);
+                command.Parameters.AddWithValue("@Quantity", product.Quantity);
+                command.Parameters.AddWithValue("@UpdatedAt", DateTime.UtcNow);
+                command.Parameters.AddWithValue("@Id", product.Id);
+                int rows = command.ExecuteNonQuery();
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e.ToString());
+        }
         return Task.FromResult(product);
     }
 
     public Task<bool> DeleteProduct(int id)
     {
-        //var index = products.FindIndex(p => p.Id == id);
-        //products.RemoveAt(index);
+        try
+        {
+            using (SqlConnection connection = new SqlConnection(Environment.GetEnvironmentVariable("SqlConnectionString")))
+            {
+                connection.Open();
+                //var query = @"Delete from ShoppingList Where Id = @Id";
+                var query = @"Update ShoppingList Set DeletedAt = GETDATE() Where Id = @Id";
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Id", id);
+                command.ExecuteNonQuery();
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e.ToString());
+            return Task.FromResult(false);
+        }
+
         return Task.FromResult(true);
     }
 
@@ -58,7 +107,7 @@ public class ProductData : IProductData
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                var query = @"Select * from ShoppingList";
+                var query = @"Select * from ShoppingList Where DeletedAt IS NULL ";
                 SqlCommand command = new SqlCommand(query, connection);
                 var reader = await command.ExecuteReaderAsync();
                 while (reader.Read())
@@ -116,5 +165,51 @@ public class ProductData : IProductData
         }
 
         return product;
+    }
+
+    public async Task<ProductsReport> GetProductsReport()
+    {
+        ProductsReport productsReport = null;
+
+        try
+        {
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                var query = @"SELECT 
+  COUNT(Id) as TotalRecords,
+  SUM (CASE
+    WHEN CreatedAt = UpdatedAt and DeletedAt is null THEN 1
+    ELSE 0
+  END) AS CreatedRecords,
+  SUM (CASE
+    WHEN CreatedAt <> UpdatedAt and DeletedAt is null THEN 1
+    ELSE 0
+  END) AS UpdatedRecords,
+  SUM (CASE
+    WHEN DeletedAt is not null THEN 1
+    ELSE 0
+  END) AS DeletedRecords
+FROM ShoppingList";
+                SqlCommand command = new SqlCommand(query, connection);
+                var reader = await command.ExecuteReaderAsync();
+                while (reader.Read())
+                {
+                    productsReport = new ProductsReport()
+                    {
+                        TotalRecords = (int)reader["TotalRecords"],
+                        TotalCreated = (int)reader["CreatedRecords"],
+                        TotalUpdated = (int)reader["UpdatedRecords"],
+                        TotalDeleted = (int)reader["DeletedRecords"]
+                    };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex.ToString());
+        }
+
+        return productsReport;
     }
 }
