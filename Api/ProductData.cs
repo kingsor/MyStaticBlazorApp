@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Data;
 using Microsoft.Extensions.Logging;
@@ -16,6 +18,7 @@ public interface IProductData
     Task<Product> UpdateProduct(Product product);
     Task<Product> GetProductById(int id);
     Task<ProductsReport> GetProductsReport();
+    Task SendNotifyEmail(string jsonReport);
 }
 
 public class ProductData : IProductData
@@ -211,5 +214,64 @@ FROM ShoppingList";
         }
 
         return productsReport;
+    }
+
+    public async Task SendNotifyEmail(string jsonReport)
+    {
+        _logger.LogInformation("SendNotifyEmail - Start");
+
+        try
+        {
+            string mailSettings = Environment.GetEnvironmentVariable("MailgunSettings").Replace("'", "\"");
+            var mailgunSettings = JsonSerializer.Deserialize<MailgunSettings>(mailSettings);
+
+            var mailService = new Mailgun.Mailgun(mailgunSettings.DomainName, mailgunSettings.MailgunApiKey);
+
+            var notifyEmails = mailgunSettings.NotifyEmails;
+
+            var selDate = DateTime.Now;
+
+            var emailSubject = String.Format(mailgunSettings.Subject, selDate.ToString(mailgunSettings.SubjectDateFormat));
+
+            var toEmails = new List<Mailgun.EmailAddress>();
+
+            var sb = new StringBuilder();
+            sb.AppendLine("This is a report about ShoppingList activity.");
+            sb.AppendLine();
+            sb.AppendLine(jsonReport);
+
+            if (!String.IsNullOrEmpty(notifyEmails))
+            {
+                String[] emails = notifyEmails.Split(';');
+
+                foreach (string email in emails)
+                {
+                    toEmails.Add(new Mailgun.EmailAddress(email));
+                }
+            }
+
+            var message = new Mailgun.Message()
+            {
+                From = new Mailgun.EmailAddress(mailgunSettings.FromEmail, mailgunSettings.FromName),
+                Subject = emailSubject,
+                Text = sb.ToString(),
+                To = toEmails
+            };
+
+            _logger.LogInformation("Sending message ...");
+            var result = await mailService.SendMessageAsync(message);
+
+            _logger.LogInformation("Output from mailgun server");
+            if (result.Successful)
+                _logger.LogInformation($"Response Message: {result.Response.Status} - Id: {result.Response.MessageId}");
+            else
+                _logger.LogError($"Error Message: {result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending notification email");
+        }
+
+        _logger.LogInformation("SendNotifyEmail - End");
     }
 }
