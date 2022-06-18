@@ -15,7 +15,7 @@ namespace Api
         }
 
         [FunctionName("ProductsMonitor")]
-        public void Run([TimerTrigger("0 30 */1 * * *")] TimerInfo timerInfo, ILogger logger)
+        public void Run([TimerTrigger("0 0 */6 * * *")] TimerInfo timerInfo, ILogger logger)
         {
             logger.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
 
