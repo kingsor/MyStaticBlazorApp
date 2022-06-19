@@ -71,8 +71,7 @@ else
         }
         else
         {
-            var products = await http.GetFromJsonAsync<IEnumerable<Product>>("api/products");
-            product = products.First(p => p.Id == ProductId);
+            product = await http.GetFromJsonAsync<Product>($"api/products/{ProductId}");
         }
     }
 
