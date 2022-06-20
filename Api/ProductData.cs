@@ -127,6 +127,7 @@ public class ProductData : IProductData
         catch (Exception ex)
         {
             _logger.LogError(ex.ToString());
+            products.Add(new Product() { Name = ex.Message, Description = ex.ToString(), Quantity = 0, Id = 0 });
         }
 
         return products.AsEnumerable();
@@ -161,6 +162,13 @@ public class ProductData : IProductData
         catch (Exception ex)
         {
             _logger.LogError(ex.ToString());
+            product = new Product()
+            {
+                Name = ex.Message,
+                Description = ex.ToString(),
+                Quantity = 0,
+                Id = 0
+            };
         }
 
         return product;
