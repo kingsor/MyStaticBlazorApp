@@ -10,11 +10,11 @@ namespace Api;
 
 public interface IProductData
 {
-    Task<Product> AddProduct(Product product);
+    Task<ProductResponse> AddProduct(Product product);
     Task<bool> DeleteProduct(int id);
-    Task<IEnumerable<Product>> GetProducts();
-    Task<Product> UpdateProduct(Product product);
-    Task<Product> GetProductById(int id);
+    Task<ProductsResponse> GetProducts();
+    Task<ProductResponse> UpdateProduct(Product product);
+    Task<ProductResponse> GetProductById(int id);
 }
 
 public class ProductData : IProductData
@@ -28,8 +28,14 @@ public class ProductData : IProductData
         _connectionString = Environment.GetEnvironmentVariable("SqlConnectionString");
     }
 
-    public Task<Product> AddProduct(Product product)
+    public Task<ProductResponse> AddProduct(Product product)
     {
+        var response = new ProductResponse()
+        {
+            ErrorMessage = String.Empty,
+            Product = product
+        };
+
         try
         {
             using (SqlConnection connection = new SqlConnection(Environment.GetEnvironmentVariable("SqlConnectionString")))
@@ -46,12 +52,20 @@ public class ProductData : IProductData
         catch (Exception e)
         {
             _logger.LogError(e.ToString());
+            response.ErrorMessage = e.Message;
         }
-        return Task.FromResult(product);
+
+        return Task.FromResult(response);
     }
 
-    public Task<Product> UpdateProduct(Product product)
+    public Task<ProductResponse> UpdateProduct(Product product)
     {
+        var response = new ProductResponse()
+        {
+            ErrorMessage = String.Empty,
+            Product = null
+        };
+
         try
         {
             using (SqlConnection connection = new SqlConnection(Environment.GetEnvironmentVariable("SqlConnectionString")))
@@ -66,12 +80,16 @@ public class ProductData : IProductData
                 command.Parameters.AddWithValue("@Id", product.Id);
                 int rows = command.ExecuteNonQuery();
             }
+
+            response.Product = product;
         }
         catch (Exception e)
         {
             _logger.LogError(e.ToString());
+            response.ErrorMessage = e.Message;
         }
-        return Task.FromResult(product);
+
+        return Task.FromResult(response);
     }
 
     public Task<bool> DeleteProduct(int id)
@@ -97,8 +115,13 @@ public class ProductData : IProductData
         return Task.FromResult(true);
     }
 
-    public async Task<IEnumerable<Product>> GetProducts()
+    public async Task<ProductsResponse> GetProducts()
     {
+        var response = new ProductsResponse()
+        {
+            ErrorMessage = string.Empty
+        };
+
         List<Product> products = new List<Product>();
         
         try
@@ -127,15 +150,21 @@ public class ProductData : IProductData
         catch (Exception ex)
         {
             _logger.LogError(ex.ToString());
-            products.Add(new Product() { Name = ex.Message, Description = ex.ToString(), Quantity = 0, Id = 0 });
+            response.ErrorMessage = ex.Message;
         }
 
-        return products.AsEnumerable();
+        response.Products = products.AsEnumerable();
+
+        return response;
     }
 
-    public async Task<Product> GetProductById(int id)
+    public async Task<ProductResponse> GetProductById(int id)
     {
-        Product product = null;
+        var response = new ProductResponse()
+        {
+            ErrorMessage = String.Empty,
+            Product = null
+        };
 
         try
         {
@@ -148,7 +177,7 @@ public class ProductData : IProductData
                 var reader = await command.ExecuteReaderAsync();
                 while (reader.Read())
                 {
-                    product = new Product()
+                    response.Product = new Product()
                     {
                         Id = (int)reader["Id"],
                         Name = reader["Name"].ToString(),
@@ -157,21 +186,20 @@ public class ProductData : IProductData
 
                     };
                 }
+
+                if(response.Product == null)
+                {
+                    response.ErrorMessage = $"Product with id={id} was not found";
+                }
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex.ToString());
-            product = new Product()
-            {
-                Name = ex.Message,
-                Description = ex.ToString(),
-                Quantity = 0,
-                Id = 0
-            };
+            response.ErrorMessage = ex.Message;
         }
 
-        return product;
+        return response;
     }
     
 }

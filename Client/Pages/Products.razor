@@ -31,7 +31,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        products = await http.GetFromJsonAsync<IEnumerable<Product>>("api/products");
+        await HandleRefresh();
     }
 
     private void AddNewProduct()
@@ -41,7 +41,17 @@
 
     private async Task HandleRefresh()
     {
-        products = await http.GetFromJsonAsync<IEnumerable<Product>>("api/products");
+        //products = await http.GetFromJsonAsync<IEnumerable<Product>>("api/products");
+
+        var response = await http.GetFromJsonAsync<ProductsResponse>("api/products");
+        if(!string.IsNullOrEmpty( response.ErrorMessage))
+        {
+            errorMessage = response.ErrorMessage;
+        }
+        else
+        {
+            products = response.Products;
+        }
     }
 
     private void SelectProduct(Product product)
