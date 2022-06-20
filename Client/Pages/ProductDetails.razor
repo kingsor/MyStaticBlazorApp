@@ -2,7 +2,11 @@
 @inject HttpClient http
 @inject NavigationManager navigation
 
-@if (product == null)
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div>@errorMessage</div>
+}
+else if (product == null)
 {
     <p>Loading...</p>
 }
@@ -60,6 +64,7 @@ else
 
 @code {
     private Product product;
+    private string errorMessage;
 
     [Parameter] public int ProductId { get; set; }
 
@@ -71,7 +76,15 @@ else
         }
         else
         {
-            product = await http.GetFromJsonAsync<Product>($"api/products/{ProductId}");
+            var response = await http.GetFromJsonAsync<ProductResponse>($"api/products/{ProductId}");
+            if(!string.IsNullOrEmpty( response.ErrorMessage))
+            {
+                errorMessage = response.ErrorMessage;
+            }
+            else
+            {
+                product = response.Product;
+            }
         }
     }
 

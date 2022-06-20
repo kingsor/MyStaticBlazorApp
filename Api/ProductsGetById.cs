@@ -23,17 +23,9 @@ namespace Api
             int productId,
             ILogger log)
         {
-            var product = await productData.GetProductById(productId);
+            var response = await productData.GetProductById(productId);
 
-            //return new OkObjectResult(products);
-            if (product != null)
-            {
-                return new OkObjectResult(product);
-            }
-            else
-            {
-                return new NotFoundResult();
-            }
+            return new OkObjectResult(response);
         }
     }
 }

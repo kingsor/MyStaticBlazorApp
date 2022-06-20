@@ -22,17 +22,9 @@ namespace Api
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "products")] HttpRequest req,
             ILogger log)
         {
-            var products = await productData.GetProducts();
+            var response = await productData.GetProducts();
 
-            //return new OkObjectResult(products);
-            if (products.Count() > 0)
-            {
-                return new OkObjectResult(products);
-            }
-            else
-            {
-                return new NotFoundResult();
-            }
+            return new OkObjectResult(response);
         }
     }
 }
